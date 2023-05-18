@@ -17,6 +17,8 @@ Implementation:
 Using pre-train model md5 and transformer provided by [Hugging Face](https://huggingface.co/)
 <br/>
 Fine-tune the model
+## Evaluating the result
+Using Rouge
 ### Useful resource
 1.[CkipTagger](https://github.com/ckiplab/ckiptagger)
 <br/>
