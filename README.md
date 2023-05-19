@@ -14,9 +14,11 @@ Implementation:
 <br/>
 4.Article summarize
 ## Generative Method
-Using pre-train model md5 and transformer provided by [Hugging Face](https://huggingface.co/)
+Using pre-train model md5 and transformer provided by google on [Hugging Face](https://huggingface.co/)
 <br/>
-Fine-tune the model
+Fine-tuning the model
+<br/>
+with supervis
 ## Evaluating the result
 Using ROUGE which is the most used package designed for automatic summarization
 <br/>
