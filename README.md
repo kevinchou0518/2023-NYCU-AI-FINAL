@@ -18,7 +18,9 @@ Using pre-train model md5 and transformer provided by [Hugging Face](https://hug
 <br/>
 Fine-tune the model
 ## Evaluating the result
-Using Rouge
+Using ROUGE which is the most used package designed for automatic summarization
+<br/>
+[chinese rouge](https://github.com/cccntu/tw_rouge/tree/main) 
 ### Useful resource
 1.[CkipTagger](https://github.com/ckiplab/ckiptagger)
 <br/>
