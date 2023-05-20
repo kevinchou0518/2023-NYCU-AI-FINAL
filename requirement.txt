@@ -1,0 +1,12 @@
+requests
+json
+bs4
+lxml 
+
+nltk
+jeiba
+numpy
+datasets
+ckiptagger[tf,gdown]
+rouge
+
