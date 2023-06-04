@@ -35,53 +35,65 @@ import eval
 from collections import deque
 from torch.nn import CrossEntropyLoss
 #os.environ["WANDB_DISABLED"] = "true"
-def compute_rl_loss(data, logits, refs, model, tokenizer, accelerator):
+def compute_rl_loss(data, logits, model, tokenizer, accelerator, device, compute_metrice):
     # Using origin model to generate the summary
-    with torch.no_grad():
-        baseline_tokens = accelerator.unwrap_model(model).generate(
-            data["input_ids"],
-            attention_mask=data["attention_mask"],
-            max_length=64,
-        )
+    baseline_tokens = accelerator.unwrap_model(model).generate(
+        data["input_ids"],
+        attention_mask=data["attention_mask"],
+        max_length=64,
+        num_beams=5
+    )
+    """
     baseline_tokens = accelerator.pad_across_processes(
         baseline_tokens, dim=1, pad_index=tokenizer.pad_token_id
     )
     baseline_tokens = accelerator.gather(baseline_tokens)
     baseline_preds = tokenizer.batch_decode(baseline_tokens.cpu().numpy(), skip_special_tokens=True)
+    """
     # Using model to generae the summary with sampling method 
-    with torch.no_grad():
-        sampled_tokens = accelerator.unwrap_model(model).generate(
-            data["input_ids"],
-            attention_mask=data["attention_mask"],
-            max_length=64,
-            do_sample=True,
-            top_k=0,
-            top_p=0.2,
-            temperature=0.5
-        )
+
+    sampled_tokens = accelerator.unwrap_model(model).generate(
+        data["input_ids"],
+        attention_mask=data["attention_mask"],
+        max_length=64,
+        do_sample=True,
+        num_beams=1,
+        top_k=0,
+        top_p=0.2,
+        temperature=0.5
+    )
+    """
     sampled_tokens = accelerator.pad_across_processes(
         sampled_tokens, dim=1, pad_index=tokenizer.pad_token_id
     )
     sampled_tokens = accelerator.gather(sampled_tokens)
     sampled_preds = tokenizer.batch_decode(sampled_tokens.cpu().numpy(), skip_special_tokens=True)
+    """
     # compute the score of baseline summary
     baseline_scores = []
-    for pred, ref in zip(baseline_preds, refs):
-        list_pred, list_ref = [], []
-        list_pred.append(pred)
-        list_ref.append(ref)
-        baseline_scores.append(eval.eval_func([list_pred, list_ref]))
-    baseline_rewards = [(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
-                        for scores in baseline_scores]
+    for pred, ref in zip(baseline_tokens, data['labels']):
+        #list_pred, list_ref = [], []
+        #list_pred.append(pred)
+        #list_ref.append(ref)
+        pred = torch.unsqueeze(pred, 0)
+        ref = torch.unsqueeze(ref, 0)
+        baseline_scores.append(compute_metrice([pred, ref]))
+        #print(baseline_scores)
+    baseline_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
+                        for scores in baseline_scores]).to(device)
     # compute the score of sample summary
     sampled_scores = []
-    for pred, ref in zip(sampled_preds, refs):
-        list_pred, list_ref = [], []
-        list_pred.append(pred)
-        list_ref.append(ref)
-        sampled_scores.append(eval.eval_func([list_pred, list_ref]))
-    sampled_rewards = [(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
-                        for scores in sampled_scores]
+    for pred, ref in zip(sampled_tokens, data['labels']):
+        #list_pred, list_ref = [], []
+        #list_pred.append(pred)
+        #list_ref.append(ref)
+        #list_pred = torch.tensor(list_pred)
+        #list_ref = torch.tensor(list_ref)
+        pred = torch.unsqueeze(pred, 0)
+        ref = torch.unsqueeze(ref, 0)
+        sampled_scores.append(compute_metrice([pred, ref]))
+    sampled_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
+                        for scores in sampled_scores]).to(device)
     # compute the loss
     loss_fct = CrossEntropyLoss(reduction="none")
     if logits.shape[1] < sampled_tokens.shape[1]:
@@ -93,7 +105,7 @@ def compute_rl_loss(data, logits, refs, model, tokenizer, accelerator):
     rl_loss = (diff_rewards * sampled_probs).mean()
     return rl_loss
 """
-class RL_Seq2SeqTrainer(Seq2SeqTrainer):
+class RLSeq2SeqTrainer(Seq2SeqTrainer):
     def compute_loss(self, model, inputs, return_outputs=False):
         outputs = model(**inputs)
         if isnan(outputs.loss.item()):
@@ -402,7 +414,7 @@ def rl_train():
     def compute_metrices(eval_arg):
         preds, labels = eval_arg
         preds, labels = preds.cpu(), labels.cpu()
-        labels = np.where(labels != -100, labels, mt5_tokenizer.pad_token_id)
+        labels =np.where(labels != -100, labels, mt5_tokenizer.pad_token_id)
         text_preds = mt5_tokenizer.batch_decode(preds, skip_special_tokens=True)
         text_labels = mt5_tokenizer.batch_decode(labels, skip_special_tokens=True)
         text_preds = [(p if p.endswith(("!", "！", "?", "？", "。")) else p + "。") for p in text_preds]
@@ -413,7 +425,8 @@ def rl_train():
         return rouge_metric.compute(
             predictions=text_preds,
             references=text_labels,
-            tokenizer=tokenize_sentence
+            tokenizer=tokenize_sentence,
+            
         )
     model = (AutoModelForSeq2SeqLM
          .from_pretrained("./iter_trained_for_summarization_tw")
@@ -459,15 +472,15 @@ def rl_train():
     path = datetime.now().strftime("%Y%m%d-%H%M%S")
     path += '_rl'
     os.makedirs(path)
-    for epoch in tqdm(range(5)):
+    for epoch in tqdm(range(1)):
         total_rl_loss, total_loss = 0, 0
-        print(len(train_dataloader))
+        #print(len(train_dataloader))
         for step, data in tqdm(enumerate(train_dataloader, 1)):
             model.train()
-            refs = dataset['train'].select(data["indices"])["title"]
+            #refs = dataset['train'].select(data["indices"])["title"]
             data = {k: v for k, v in data.items() if k != "indices"}
             outputs = model(**data)
-            rl_loss = compute_rl_loss(data, outputs.logits, refs, model, mt5_tokenizer, accelerator)
+            rl_loss = compute_rl_loss(data, outputs.logits, model, mt5_tokenizer, accelerator, device, compute_metrices)
             total_rl_loss += rl_loss.item()
 
             loss = rl_loss
@@ -548,8 +561,8 @@ def rl_train():
     unwrapped_model.save_pretrained("rl_iter_trained_for_summarization_tw", save_function=accelerator.save)
     return 
 def main():
-    #rl_train()
-    train()
+    rl_train()
+    #train()
     return
 
 
