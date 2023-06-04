@@ -256,18 +256,8 @@ def train():
     eval_dataloader = DataLoader(
         evaldataset.select(range(20)), shuffle=True, collate_fn=data_collator, batch_size=4
     )
-    no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_params = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": 0.01,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
-    optimizer = Adafactor(optimizer_params, lr=5e-4)
+
+    optimizer = Adafactor(model.parameters() , lr = 5e-4 , weight_decay = 0.01 , relative_step = False , scale_parameter = False)
     
     model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader, eval_dataloader
@@ -448,17 +438,7 @@ def rl_train():
         evaldataset, shuffle=True, collate_fn=data_collator, batch_size=4
     )
     no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_params = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": 0.01,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
-    optimizer = Adafactor(optimizer_params, lr=5e-5)
+    optimizer = Adafactor(model.parameters() , lr = 5e-4 , weight_decay = 0.01 , relative_step = False , scale_parameter = False)s
     model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader, eval_dataloader
     
@@ -563,8 +543,8 @@ def rl_train():
     unwrapped_model.save_pretrained("rl_iter_trained_for_summarization_tw", save_function=accelerator.save)
     return 
 def main():
-    rl_train()
-    #train()
+    #rl_train()
+    train()
     return
 
 
