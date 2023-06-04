@@ -36,6 +36,7 @@ from collections import deque
 from torch.nn import CrossEntropyLoss
 #os.environ["WANDB_DISABLED"] = "true"
 def compute_rl_loss(data, logits, refs, model, tokenizer, accelerator):
+    # Using origin model to generate the summary
     with torch.no_grad():
         baseline_tokens = accelerator.unwrap_model(model).generate(
             data["input_ids"],
@@ -47,6 +48,7 @@ def compute_rl_loss(data, logits, refs, model, tokenizer, accelerator):
     )
     baseline_tokens = accelerator.gather(baseline_tokens)
     baseline_preds = tokenizer.batch_decode(baseline_tokens.cpu().numpy(), skip_special_tokens=True)
+    # Using model to generae the summary with sampling method 
     with torch.no_grad():
         sampled_tokens = accelerator.unwrap_model(model).generate(
             data["input_ids"],
@@ -62,6 +64,7 @@ def compute_rl_loss(data, logits, refs, model, tokenizer, accelerator):
     )
     sampled_tokens = accelerator.gather(sampled_tokens)
     sampled_preds = tokenizer.batch_decode(sampled_tokens.cpu().numpy(), skip_special_tokens=True)
+    # compute the score of baseline summary
     baseline_scores = []
     for pred, ref in zip(baseline_preds, refs):
         list_pred, list_ref = [], []
@@ -70,7 +73,7 @@ def compute_rl_loss(data, logits, refs, model, tokenizer, accelerator):
         baseline_scores.append(eval.eval_func([list_pred, list_ref]))
     baseline_rewards = [(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
                         for scores in baseline_scores]
-
+    # compute the score of sample summary
     sampled_scores = []
     for pred, ref in zip(sampled_preds, refs):
         list_pred, list_ref = [], []
@@ -79,7 +82,7 @@ def compute_rl_loss(data, logits, refs, model, tokenizer, accelerator):
         sampled_scores.append(eval.eval_func([list_pred, list_ref]))
     sampled_rewards = [(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
                         for scores in sampled_scores]
-    
+    # compute the loss
     loss_fct = CrossEntropyLoss(reduction="none")
     if logits.shape[1] < sampled_tokens.shape[1]:
         sampled_tokens = sampled_tokens[:, :logits.shape[1]]
@@ -165,7 +168,7 @@ def train():
     mt5_tokenizer = AutoTokenizer.from_pretrained("google/mt5-small")
 
     
-    """ tokenizer data """
+    """ tokenize data """
     def tokenize_sample_data(data, indices):
         # restrict token size.
         input_feature = mt5_tokenizer(data["article"], truncation=True, max_length=256)
@@ -228,7 +231,8 @@ def train():
         model=model,
         return_tensors="pt"
     )
-    
+
+    """ use acclerator to enhance training process """
     accelerator = Accelerator()
     traindataset = tokenized_ds["train"]
     evaldataset = tokenized_ds["eval"]
@@ -267,6 +271,8 @@ def train():
     train_info_eval = []
     path = datetime.now().strftime("%Y%m%d-%H%M%S")
     os.makedirs(path)
+
+    """ training """
     for epoch in tqdm(range(5)):
         total_ml_loss, total_loss = 0, 0
         for step, data in tqdm(enumerate(train_dataloader, 1)):
@@ -437,7 +443,7 @@ def rl_train():
             "weight_decay": 0.0,
         },
     ]
-    optimizer = AdamW(optimizer_params, lr=5e-4)
+    optimizer = AdamW(optimizer_params, lr=5e-5)
     model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader, eval_dataloader
     
@@ -450,7 +456,9 @@ def rl_train():
     )
     train_info_loss = []
     train_info_eval = []
-    #os.makedirs()
+    path = datetime.now().strftime("%Y%m%d-%H%M%S")
+    path += '_rl'
+    os.makedirs(path)
     for epoch in tqdm(range(5)):
         total_rl_loss, total_loss = 0, 0
         print(len(train_dataloader))
@@ -472,12 +480,7 @@ def rl_train():
             accelerator.backward(loss)
             if step % 16 == 0 or step == len(train_dataloader):
                 print("Loss: {:.5f}".format(loss))
-                info = {
-                    'epoch':epoch,
-                    'step': step,
-                    'loss': loss
-                }
-                train_info_loss.append(info)
+                
                 clip_grad_norm_(model.parameters(), max_norm=5) 
                 optimizer.step()
                 lr_scheduler.step()
@@ -522,28 +525,33 @@ def rl_train():
                     'rouge_score': eval_metrices
                 }
                 train_info_eval.append(info)
+                info = {
+                    'epoch':epoch,
+                    'step': step,
+                    'loss': loss.detach().cpu().numpy().tolist()
+                }
+                train_info_loss.append(info)
                 print(" ---evaluating--- ")
                 print("step =",step)
                 print(eval_metrices)
-
+        filename = path + '/loss_train_epoch_' + str(epoch) + '.json'
+        with open(filename, 'w+') as file:
+            for data in train_info_loss:
+                file.write(json.dumps(data , ensure_ascii=False) + "\n")
+        filename = path + '/eval_train_epoch_' + str(epoch) + '.json'
+        with open(filename, 'w+') as file:
+            for data in train_info_eval:
+                file.write(json.dumps(data , ensure_ascii=False) + "\n")
     accelerator.wait_for_everyone()
     unwrapped_model = accelerator.unwrap_model(model)
+    modelpath = "rl_iter_trained_for_summarization_tw_" + path
     unwrapped_model.save_pretrained("rl_iter_trained_for_summarization_tw", save_function=accelerator.save)
     return 
 def main():
-    args = arg_parse()
     #rl_train()
     train()
     return
 
-def arg_parse() -> Namespace:
-    parser = ArgumentParser()
-    parser.add_argument("--train", type=bool, default=True)
-    parser.add_argument("--rl", type=bool, default=False)
-    parser.add_argument("--epoch", type=int, default=10)
-    parser.add_argument("--batch_size", type=int, default=10)
-    parser.add_argument("--lr", type=float, default=5e-4)
-    return 
 
 if __name__ == "__main__":
     main()
