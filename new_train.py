@@ -293,13 +293,14 @@ def train():
     """ training """
     for epoch in tqdm(range(5)):
         total_ml_loss, total_loss = 0, 0
+        accum_loss = 0
         for step, data in tqdm(enumerate(train_dataloader, 1)):
             model.train()
             data = {k: v for k, v in data.items() if k != "indices"}
             outputs = model(**data)
             ml_loss = outputs.loss
             total_ml_loss += ml_loss.item()
-
+            
             loss = ml_loss
             total_loss += loss.item()
             if len(train_dataloader) % 16 != 0 \
@@ -307,10 +308,17 @@ def train():
                 loss = loss / (len(train_dataloader) % 16)
             else:
                 loss = loss / 16
+            accum_loss += loss
             accelerator.backward(loss)
             if step % 16 == 0 or step == len(train_dataloader):
-                print("Loss: {:.5f}".format(loss))
-                
+                accum_loss /= 16
+                print("Loss: {:.5f}".format(accum_loss))
+                info = {
+                    'epoch':epoch,
+                    'step': step,
+                    'loss': accum_loss.detach().cpu().numpy().tolist()
+                }
+                train_info_loss.append(info)
                 clip_grad_norm_(model.parameters(), max_norm=5) 
                 optimizer.step()
                 lr_scheduler.step()
@@ -353,12 +361,7 @@ def train():
                 print(" ---evaluating--- ")
                 print("step =",step)
                 print(eval_metrices)
-                info = {
-                    'epoch':epoch,
-                    'step': step,
-                    'loss': loss.detach().cpu().numpy().tolist()
-                }
-                train_info_loss.append(info)
+                
                 info = {
                     'epoch':epoch,
                     'step': step,
@@ -507,7 +510,8 @@ def rl_train():
             accum_loss += loss
             accelerator.backward(loss)
             if step % 16 == 0 or step == len(train_dataloader):
-                print("Loss: {:.5f}".format(accum_loss / 16))
+                accum_loss /= 16
+                print("Loss: {:.5f}".format(accum_loss))
                 info = {
                     'epoch':epoch,
                     'step': step,
@@ -577,8 +581,8 @@ def rl_train():
     unwrapped_model.save_pretrained("mlplusrl_iter_trained_for_summarization_tw", save_function=accelerator.save)
     return 
 def main():
-    rl_train()
-    #train()
+    #rl_train()
+    train()
     return
 
 
