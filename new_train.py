@@ -304,7 +304,7 @@ def train():
             if step % 16 == 0 or step == len(train_dataloader):
                 print("Train | Loss: {:.5f}".format(total_loss / step))
 
-            if step % 800 == 0:
+            if step % 100 == 0:
                 model.eval()
                 eval_metrices = {
                     'rouge1': 0,
@@ -482,7 +482,7 @@ def rl_train():
                 optimizer.zero_grad()
             if step % 16 == 0 or step == len(train_dataloader):
                 print("Train | Loss: {:.5f}".format(total_loss / step))
-            if step % 800 == 0:
+            if step % 100 == 0:
                 model.eval()
                 eval_metrices = {
                     'rouge1': 0,
