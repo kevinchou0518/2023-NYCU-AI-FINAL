@@ -26,6 +26,7 @@ from transformers import (
     Seq2SeqTrainingArguments,
     Seq2SeqTrainer,
     AdamW,
+    Adafactor,
     get_scheduler
 )
 import evaluate
@@ -266,7 +267,7 @@ def train():
             "weight_decay": 0.0,
         },
     ]
-    optimizer = AdamW(optimizer_params, lr=5e-4)
+    optimizer = Adafactor(optimizer_params, lr=5e-4)
     
     model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader, eval_dataloader
@@ -457,7 +458,7 @@ def rl_train():
             "weight_decay": 0.0,
         },
     ]
-    optimizer = AdamW(optimizer_params, lr=5e-5)
+    optimizer = Adafactor(optimizer_params, lr=5e-5)
     model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader, eval_dataloader
     
