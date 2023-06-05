@@ -13,7 +13,7 @@ Implementation:
 3.Score the sentence
 <br/>
 4.Article summarize
-## Generative Method
+## Abstractive Method
 Using pre-train model md5 and transformer provided by google on [Hugging Face](https://huggingface.co/)
 <br/>
 Fine-tuning the model
