@@ -581,8 +581,8 @@ def rl_train():
     unwrapped_model.save_pretrained("mlplusrl_iter_trained_for_summarization_tw", save_function=accelerator.save)
     return 
 def main():
-    #rl_train()
-    train()
+    rl_train()
+    #train()
     return
 
 
