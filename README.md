@@ -43,4 +43,5 @@ Using ROUGE which is the most used package designed for automatic summarization
 2.[Attention Is All You Need](https://arxiv.org/pdf/1706.03762.pdf)
 <br/>
 3.[mT5: A Massively Multilingual Pre-trained Text-to-Text Transformer](https://arxiv.org/pdf/2010.11934.pdf)
-<br/>
+<br/>.
+4.[A DEEP REINFORCED MODEL FOR ABSTRACTIVE SUMMARIZATION](https://arxiv.org/pdf/1705.04304.pdf)
