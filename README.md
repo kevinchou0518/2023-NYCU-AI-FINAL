@@ -34,3 +34,8 @@ Using ROUGE which is the most used package designed for automatic summarization
 <br/>
 ### Useful Article
 1.[Text Summarization Techniques(一) — 概述](https://medium.com/ml-note/%E8%87%AA%E5%8B%95%E6%96%87%E7%AB%A0%E6%91%98%E8%A6%81%E6%96%B9%E6%B3%95-e56dc2d2f6f4)
+2.[Reinforcement Learning for NLP](https://web.stanford.edu/class/archive/cs/cs224n/cs224n.1184/lectures/lecture16-guest.pdf)
+
+### Related Paper
+1.[Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer](https://jmlr.org/papers/volume21/20-074/20-074.pdf)
+2.[Attention Is All You Need](https://arxiv.org/pdf/1706.03762.pdf)
