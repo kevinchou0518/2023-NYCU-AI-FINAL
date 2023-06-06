@@ -45,16 +45,7 @@ def compute_rl_loss(data, logits, model, tokenizer, accelerator, device, compute
         max_length=64,
         num_beams=1
     )
-    #print(logits.size())
-    #print(logits)
-    #print(softmax(logits, 1))
-    """
-    baseline_tokens = accelerator.pad_across_processes(
-        baseline_tokens, dim=1, pad_index=tokenizer.pad_token_id
-    )
-    baseline_tokens = accelerator.gather(baseline_tokens)
-    baseline_preds = tokenizer.batch_decode(baseline_tokens.cpu().numpy(), skip_special_tokens=True)
-    """
+
     # Using model to generae the summary with sampling method 
 
     sampled_tokens = accelerator.unwrap_model(model).generate(
@@ -80,15 +71,9 @@ def compute_rl_loss(data, logits, model, tokenizer, accelerator, device, compute
                 sum += j
         scores.append(sum/10)
     scores = torch.tensor(scores).to(device)
-    print(scores)
+    #print(scores)
     sampled_tokens = sampled_tokens.sequences
-    """
-    sampled_tokens = accelerator.pad_across_processes(
-        sampled_tokens, dim=1, pad_index=tokenizer.pad_token_id
-    )
-    sampled_tokens = accelerator.gather(sampled_tokens)
-    sampled_preds = tokenizer.batch_decode(sampled_tokens.cpu().numpy(), skip_special_tokens=True)
-    """
+
     # compute the score of baseline summary
     baseline_scores = []
     for pred, ref in zip(baseline_tokens, data['labels']):
@@ -97,7 +82,9 @@ def compute_rl_loss(data, logits, model, tokenizer, accelerator, device, compute
         ref = torch.unsqueeze(ref, 0)
         baseline_scores.append(compute_metrice([pred, ref]))
         #print(baseline_scores)
-    baseline_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
+    #baseline_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
+    #                    for scores in baseline_scores]).to(device)
+    baseline_rewards = torch.FloatTensor([scores["rougeL"] \
                         for scores in baseline_scores]).to(device)
     # compute the score of sample summary
     sampled_scores = []
@@ -105,19 +92,22 @@ def compute_rl_loss(data, logits, model, tokenizer, accelerator, device, compute
         pred = torch.unsqueeze(pred, 0)
         ref = torch.unsqueeze(ref, 0)
         sampled_scores.append(compute_metrice([pred, ref]))
-    sampled_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
+    #sampled_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
+    #                    for scores in sampled_scores]).to(device)
+    sampled_rewards = torch.FloatTensor([scores["rougeL"]  \
                         for scores in sampled_scores]).to(device)
     # compute the loss
-    #loss_fct = CrossEntropyLoss(reduction="none")
+    #loss_fct = CrossEntropyLoss(ignore_index=-100)
     #if logits.shape[1] < sampled_tokens.shape[1]:
     #    sampled_tokens = sampled_tokens[:, :logits.shape[1]]
     #loss_input = logits[:, :sampled_tokens.shape[1], :].reshape(-1, logits.shape[-1])
     #loss_target = sampled_tokens.reshape(-1)
     #sampled_probs = -loss_fct(loss_input, loss_target).reshape(logits.shape[0], -1).sum(1)
+    #loss = loss_fct(logits.view(-1, logits.size(-1)), data["labels"].view(-1))
     diff_rewards = (torch.Tensor(baseline_rewards) - torch.Tensor(sampled_rewards)).to(device)
-    print(diff_rewards)
-    rl_loss = (diff_rewards * scores).mean()
-    print(rl_loss)
+    #print(diff_rewards)
+    rl_loss = -(diff_rewards * scores).mean()
+    #print(rl_loss)
     return rl_loss
 """
 class RLSeq2SeqTrainer(Seq2SeqTrainer):
@@ -249,11 +239,14 @@ def train():
         num_beams=10,  
     )
     
+    #model = (AutoModelForSeq2SeqLM
+    #    .from_pretrained("google/mt5-small", config=mt5_config)
+    #    .to(device)
+    #)
     model = (AutoModelForSeq2SeqLM
-        .from_pretrained("google/mt5-small", config=mt5_config)
+        .from_pretrained("ml_5epoch_new", config=mt5_config)
         .to(device)
     )
-    
     data_collator = DataCollatorForSeq2Seq(
         mt5_tokenizer,
         model=model,
@@ -291,9 +284,11 @@ def train():
     os.makedirs(path)
 
     """ training """
-    for epoch in tqdm(range(5)):
+    max_rouge_score = 0.95
+    for epoch in tqdm(range(1)):
         total_ml_loss, total_loss = 0, 0
         accum_loss = 0
+
         for step, data in tqdm(enumerate(train_dataloader, 1)):
             model.train()
             data = {k: v for k, v in data.items() if k != "indices"}
@@ -334,6 +329,7 @@ def train():
                     'rougeL': 0,
                     'rougeLsum': 0
                 }
+                
                 num = 0
                 for batch in eval_dataloader:
                     num = num + 1
@@ -361,7 +357,14 @@ def train():
                 print(" ---evaluating--- ")
                 print("step =",step)
                 print(eval_metrices)
-                
+                temp_score = eval_metrices['rouge1'] + eval_metrices['rouge2'] + eval_metrices['rougeL']
+                if temp_score > max_rouge_score:
+                        max_rouge_score = temp_score
+                        accelerator.wait_for_everyone()
+                        unwrapped_model = accelerator.unwrap_model(model)
+                        unwrapped_model.save_pretrained("iter_trained_for_summarization_tw", save_function=accelerator.save)
+                        print("save step:", step)
+                        print("max_rouge_score", max_rouge_score)
                 info = {
                     'epoch':epoch,
                     'step': step,
@@ -378,7 +381,7 @@ def train():
                 file.write(json.dumps(data , ensure_ascii=False) + "\n")
     accelerator.wait_for_everyone()
     unwrapped_model = accelerator.unwrap_model(model)
-    unwrapped_model.save_pretrained("iter_trained_for_summarization_tw", save_function=accelerator.save)
+    unwrapped_model.save_pretrained("final_iter_trained_for_summarization_tw", save_function=accelerator.save)
 
 
 def rl_train():
@@ -390,9 +393,22 @@ def rl_train():
         'test': "test.json"
     })
     """ select tokenizer """
+    mt5_config = AutoConfig.from_pretrained(
+        "google/mt5-small",
+        max_length=128,
+        length_penalty=0.6,
+        no_repeat_ngram_size=2,
+        num_beams=10,  
+    )
     mt5_tokenizer = AutoTokenizer.from_pretrained("google/mt5-small")
 
-    
+    #model = (AutoModelForSeq2SeqLM
+    #    .from_pretrained("google/mt5-small", config=mt5_config)
+    #    .to(device)
+    #)
+    model = (AutoModelForSeq2SeqLM
+        .from_pretrained("./ml_5epoch_new", config=mt5_config)
+        .to(device))
     """ tokenizer data """
     def tokenize_sample_data(data, indices):
         # restrict token size.
@@ -480,6 +496,7 @@ def rl_train():
     path = datetime.now().strftime("%Y%m%d-%H%M%S")
     path += '_rl'
     os.makedirs(path)
+    max_rouge_score = 0
     for epoch in tqdm(range(5)):
         total_rl_loss, total_loss = 0, 0
         total_ml_loss = 0
@@ -557,6 +574,14 @@ def rl_train():
                 eval_metrices['rouge2'] /= num
                 eval_metrices['rougeL'] /= num
                 eval_metrices['rougeLsum'] /= num
+                temp_score = eval_metrices['rouge1'] + eval_metrices['rouge2'] + eval_metrices['rougeL']
+                if temp_score > max_rouge_score and epoch == 4:
+                        max_rouge_score = temp_score
+                        accelerator.wait_for_everyone()
+                        unwrapped_model = accelerator.unwrap_model(model)
+                        unwrapped_model.save_pretrained("temp_mlrl_trained_for_summarization_tw", save_function=accelerator.save)
+                        print("save step:", step)
+                        print("max_rouge_score", max_rouge_score)
                 info = {
                     'epoch':epoch,
                     'step': step,
@@ -577,8 +602,8 @@ def rl_train():
                 file.write(json.dumps(data , ensure_ascii=False) + "\n")
     accelerator.wait_for_everyone()
     unwrapped_model = accelerator.unwrap_model(model)
-    modelpath = "rl_iter_trained_for_summarization_tw_" + path
-    unwrapped_model.save_pretrained("mlplusrl_iter_trained_for_summarization_tw", save_function=accelerator.save)
+    #modelpath = "rl_iter_trained_for_summarization_tw_" + path
+    unwrapped_model.save_pretrained("final_mlplusrl_iter_trained_for_summarization_tw", save_function=accelerator.save)
     return 
 def main():
     rl_train()
