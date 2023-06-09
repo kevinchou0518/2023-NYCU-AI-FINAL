@@ -48,6 +48,8 @@ optimizer: Adafactor with weight decay = 1e-2
 scheduler: Linear decay with warm up steps = 90
 
 ## Further Approach: Apply Reinforcement Learning on Fine-tuning mt5-model
+Use ROUGE scores to calculate reward
+
 ## Evaluating the result
 Using ROUGE which is the most used package designed for automatic summarization
 <br/>
