@@ -53,7 +53,6 @@ Using ROUGE which is the most used package designed for automatic summarization
 | Supervised Learning | 0.400387 | 0.198889 | 0.345834 |
 
 ### Related Paper
-<br/>
 1.[Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer](https://jmlr.org/papers/volume21/20-074/20-074.pdf)
 <br/>
 2.[Attention Is All You Need](https://arxiv.org/pdf/1706.03762.pdf)
