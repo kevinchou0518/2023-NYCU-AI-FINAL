@@ -30,8 +30,20 @@ Using pre-train transformer model mt5 provided by google
 Fine-tuning the mt5-model
 <br/>
 with our dataset collect from [ETtoday](https://www.ettoday.net/?from=logo)
+<br/>
 ### Hyperparamters
-
+batch size: 4
+<br/>
+accumulate steps: 16
+<br/>
+epoch: 5
+<br/>
+learning rate: 5e-5
+<br/>
+optimizer: Adafactor with weight decay = 1e-2
+<br/>
+scheduler: Linear decay with warm up steps = 90
+<br/>
 ## Evaluating the result
 Using ROUGE which is the most used package designed for automatic summarization
 <br/>
@@ -40,6 +52,7 @@ Using ROUGE which is the most used package designed for automatic summarization
 | sentence scoring method | 0.246016 | 0.105189 | 0.214126 |
 | mt5 model without fine-tuning | 0.140646 | 0.064830 | 0.138213 |
 | Supervised Learning | 0.389000 | 0.194737 | 0.343403 |
+| Supervised Learning | 0.400387 | 0.198889 | 0.345834 |
 
 
 <br/>
