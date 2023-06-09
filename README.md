@@ -70,4 +70,4 @@ Using ROUGE which is the most used package designed for automatic summarization
 <br/>
 2.[ckiptagger](https://github.com/ckiplab/ckiptagger)
 <br/>
-3.[Huggingface mt5 model]([https://arxiv.org/pdf/2010.11934.pdf](https://huggingface.co/docs/transformers/model_doc/mt5))
+3.[Huggingface mt5 model](https://huggingface.co/docs/transformers/model_doc/mt5)
