@@ -24,14 +24,12 @@ Implementation:
 4.Article summarize
 ## Main Approach: Abstractive Method - Fine-tuning mt5-model
 Using pre-train transformer model mt5 provided by google 
-
-
 <br/>
 Fine-tuning the mt5-model
 <br/>
 with our dataset collect from [ETtoday](https://www.ettoday.net/?from=logo)
 <br/>
-### Hyperparamters
+### Hyperparameters
 batch size: 4
 <br/>
 accumulate steps: 16
