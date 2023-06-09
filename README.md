@@ -51,6 +51,8 @@ Detail in [new_train.py](https://github.com/kevinchou0518/2023-NYCU-AI-Final-Pro
 ## Further Approach: Apply Reinforcement Learning on Fine-tuning mt5-model
 Use ROUGE scores to calculate reward
 <br/>
+Same paramter in Main Approach
+<br/>
 Detail in [new_train.py](https://github.com/kevinchou0518/2023-NYCU-AI-Final-Project-Team-10/blob/main/new_train.py) rl_train()
 ## Evaluating the result
 Using ROUGE which is the most used package designed for automatic summarization
