@@ -46,7 +46,8 @@ learning rate: 5e-5
 optimizer: Adafactor with weight decay = 1e-2
 <br/>
 scheduler: Linear decay with warm up steps = 90
-<br/>
+
+## Further Approach: Apply Reinforcement Learning on Fine-tuning mt5-model
 ## Evaluating the result
 Using ROUGE which is the most used package designed for automatic summarization
 <br/>
