@@ -1,5 +1,8 @@
 # 2023-NYCU-AI-FINAL
-
+### Create playground
+"""
+pip install -r requirements.txt
+"""
 ## Target: Doing Chinese article summarization with two different methods
  1.Extractive Method
  2.Abstractive Method
