@@ -1,4 +1,4 @@
-from argparse import ArgumentParser, Namespace
+
 import numpy as np
 import datasets 
 import json
@@ -7,7 +7,6 @@ from datasets import load_dataset
 from accelerate import Accelerator
 import torch
 from torch.utils.data.dataloader import DataLoader
-from torch.distributions import Categorical
 import evaluate
 from nltk.tokenize import RegexpTokenizer
 import os
@@ -23,9 +22,6 @@ from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
     DataCollatorForSeq2Seq,
-    Seq2SeqTrainingArguments,
-    Seq2SeqTrainer,
-    AdamW,
     Adafactor,
     get_scheduler
 )
@@ -33,10 +29,9 @@ import evaluate
 from nltk.tokenize import RegexpTokenizer
 import os
 import eval
-from collections import deque
-from torch.nn import CrossEntropyLoss
-from torch.nn.functional import softmax
-#os.environ["WANDB_DISABLED"] = "true"
+
+
+
 def compute_rl_loss(data, logits, model, tokenizer, accelerator, device, compute_metrice):
     # Using origin model to generate the summary
     baseline_tokens = accelerator.unwrap_model(model).generate(
@@ -47,7 +42,6 @@ def compute_rl_loss(data, logits, model, tokenizer, accelerator, device, compute
     )
 
     # Using model to generae the summary with sampling method 
-
     sampled_tokens = accelerator.unwrap_model(model).generate(
         data["input_ids"],
         attention_mask=data["attention_mask"],
@@ -71,20 +65,14 @@ def compute_rl_loss(data, logits, model, tokenizer, accelerator, device, compute
                 sum += j
         scores.append(sum/10)
     scores = torch.tensor(scores).to(device)
-    #print(scores)
     sampled_tokens = sampled_tokens.sequences
-
     # compute the score of baseline summary
     baseline_scores = []
     for pred, ref in zip(baseline_tokens, data['labels']):
-
         pred = torch.unsqueeze(pred, 0)
         ref = torch.unsqueeze(ref, 0)
         baseline_scores.append(compute_metrice([pred, ref]))
-        #print(baseline_scores)
-    #baseline_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
-    #                    for scores in baseline_scores]).to(device)
-    baseline_rewards = torch.FloatTensor([scores["rougeL"] \
+    baseline_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
                         for scores in baseline_scores]).to(device)
     # compute the score of sample summary
     sampled_scores = []
@@ -92,87 +80,13 @@ def compute_rl_loss(data, logits, model, tokenizer, accelerator, device, compute
         pred = torch.unsqueeze(pred, 0)
         ref = torch.unsqueeze(ref, 0)
         sampled_scores.append(compute_metrice([pred, ref]))
-    #sampled_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
-    #                    for scores in sampled_scores]).to(device)
-    sampled_rewards = torch.FloatTensor([scores["rougeL"]  \
+    sampled_rewards = torch.FloatTensor([(scores["rouge1"] + scores["rouge2"] + scores["rougeL"]) / 3 \
                         for scores in sampled_scores]).to(device)
     # compute the loss
-    #loss_fct = CrossEntropyLoss(ignore_index=-100)
-    #if logits.shape[1] < sampled_tokens.shape[1]:
-    #    sampled_tokens = sampled_tokens[:, :logits.shape[1]]
-    #loss_input = logits[:, :sampled_tokens.shape[1], :].reshape(-1, logits.shape[-1])
-    #loss_target = sampled_tokens.reshape(-1)
-    #sampled_probs = -loss_fct(loss_input, loss_target).reshape(logits.shape[0], -1).sum(1)
-    #loss = loss_fct(logits.view(-1, logits.size(-1)), data["labels"].view(-1))
     diff_rewards = (torch.Tensor(baseline_rewards) - torch.Tensor(sampled_rewards)).to(device)
-    #print(diff_rewards)
     rl_loss = -(diff_rewards * scores).mean()
-    #print(rl_loss)
     return rl_loss
-"""
-class RLSeq2SeqTrainer(Seq2SeqTrainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
-        outputs = model(**inputs)
-        if isnan(outputs.loss.item()):
-            return (outputs.loss, outputs) if return_outputs else outputs.loss
-        loss = self.policy_gradient(outputs.logits, inputs['labels'])
-        return (loss, outputs) if return_outputs else loss
-    def policy_gradient(self, logits, labels, gamma=0.9):
-        
-        def getreward(prediction, label):
-            try:
-                baseline = {
-                    'rouge1': 0.22,
-                    'rouge2': 0.085,
-                    'rougeL': 0.02
-                }
-                #print(prediction)
-                rouge_scores = eval.eval_func([prediction, label])
-                combined_rouge = 0
-                for i in baseline:
-                    combined_rouge += rouge_scores[i] / baseline[i]
-                #print(prediction, label)
-                print(combined_rouge)
-                return combined_rouge
-            except ValueError:
-                return 0
-        device = logits.device
-        eps = 1e-6
-        all_policys = []
-        all_rewards = []
-        for logit, label_ids in zip(logits, labels):
-            generated_sequence = []
-            for idx, single_logit in enumerate(logit):
-                word_distribution = Categorical(logits=single_logit)
-                next_word = word_distribution.sample()
-                generated_sequence.append(next_word)
-                all_policys.append(
-                    word_distribution.log_prob(next_word).unsqueeze(0))
-                if generated_sequence[-1] == self.tokenizer.eos_token_id or idx >= self.args.generation_max_length:
-                    break
-            generated_sequence = torch.tensor(generated_sequence).to()
-            generated_sequence = self.tokenizer.decode(
-                generated_sequence, skip_special_tokens=True, clean_up_tokenization_spaces=True)
-            label_ids = label_ids.detach().cpu().tolist()
-            label_ids = [l for l in label_ids if l > 0]
-            label_text = self.tokenizer.decode(
-                label_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
-            R = 0 if generated_sequence == "" else getreward(
-                generated_sequence, label_text)
-            rewards = deque()
-            for _ in range(idx + 1):
-                rewards.appendleft(R)
-                R *= gamma
-            all_rewards.extend(rewards)
 
-        all_policys = torch.cat(all_policys)
-        all_rewards = torch.tensor(all_rewards).to(device)
-        all_rewards = (all_rewards - all_rewards.mean()) / \
-            (all_rewards.std() + eps)  # standardize
-        # \times -1 = maximization
-        loss = torch.sum(-1 * all_policys * all_rewards, -1)
-        return -loss
-"""
 def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     """ prepare data """
@@ -239,12 +153,8 @@ def train():
         num_beams=10,  
     )
     
-    #model = (AutoModelForSeq2SeqLM
-    #    .from_pretrained("google/mt5-small", config=mt5_config)
-    #    .to(device)
-    #)
     model = (AutoModelForSeq2SeqLM
-        .from_pretrained("ml_5epoch_new", config=mt5_config)
+        .from_pretrained("google/mt5-small", config=mt5_config)
         .to(device)
     )
     data_collator = DataCollatorForSeq2Seq(
@@ -285,7 +195,7 @@ def train():
 
     """ training """
     max_rouge_score = 0.95
-    for epoch in tqdm(range(1)):
+    for epoch in tqdm(range(5)):
         total_ml_loss, total_loss = 0, 0
         accum_loss = 0
 
@@ -318,8 +228,6 @@ def train():
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
-            if step % 16 == 0 or step == len(train_dataloader):
-                print("Train | Loss: {:.5f}".format(total_loss / step))
 
             if step % 100 == 0:
                 model.eval()
@@ -329,7 +237,6 @@ def train():
                     'rougeL': 0,
                     'rougeLsum': 0
                 }
-                
                 num = 0
                 for batch in eval_dataloader:
                     num = num + 1
@@ -362,7 +269,7 @@ def train():
                         max_rouge_score = temp_score
                         accelerator.wait_for_everyone()
                         unwrapped_model = accelerator.unwrap_model(model)
-                        unwrapped_model.save_pretrained("iter_trained_for_summarization_tw", save_function=accelerator.save)
+                        unwrapped_model.save_pretrained("temp_ml_model", save_function=accelerator.save)
                         print("save step:", step)
                         print("max_rouge_score", max_rouge_score)
                 info = {
@@ -381,7 +288,7 @@ def train():
                 file.write(json.dumps(data , ensure_ascii=False) + "\n")
     accelerator.wait_for_everyone()
     unwrapped_model = accelerator.unwrap_model(model)
-    unwrapped_model.save_pretrained("final_iter_trained_for_summarization_tw", save_function=accelerator.save)
+    unwrapped_model.save_pretrained("final_ml_model", save_function=accelerator.save)
 
 
 def rl_train():
@@ -402,13 +309,10 @@ def rl_train():
     )
     mt5_tokenizer = AutoTokenizer.from_pretrained("google/mt5-small")
 
-    #model = (AutoModelForSeq2SeqLM
-    #    .from_pretrained("google/mt5-small", config=mt5_config)
-    #    .to(device)
-    #)
     model = (AutoModelForSeq2SeqLM
-        .from_pretrained("./ml_5epoch_new", config=mt5_config)
-        .to(device))
+        .from_pretrained("google/mt5-small", config=mt5_config)
+        .to(device)
+    )
     """ tokenizer data """
     def tokenize_sample_data(data, indices):
         # restrict token size.
@@ -442,14 +346,9 @@ def rl_train():
             preds = preds.cpu()
         if(labels_cpu==False):
             labels = labels.cpu()
-        #preds, labels = preds.cpu(), labels.cpu()
-        #print(preds)
-        #print(labels)
         labels =np.where(labels != -100, labels, mt5_tokenizer.pad_token_id)
         text_preds = mt5_tokenizer.batch_decode(preds, skip_special_tokens=True)
         text_labels = mt5_tokenizer.batch_decode(labels, skip_special_tokens=True)
-        #print(text_preds)
-        #print(text_labels)
         text_preds = [(p if p.endswith(("!", "！", "?", "？", "。")) else p + "。") for p in text_preds]
         text_labels = [(l if l.endswith(("!", "！", "?", "？", "。")) else l + "。") for l in text_labels]
         sent_tokenizer_tw = RegexpTokenizer(u'[^!！?？。]*[!！?？。]')
@@ -461,10 +360,7 @@ def rl_train():
             tokenizer=tokenize_sentence,
             use_aggregator=aggre
         )
-    model = (AutoModelForSeq2SeqLM
-         .from_pretrained("google/mt5-small")
-         #.from_pretrained("./iter_trained_for_summarization_tw")
-         .to(device))
+
     data_collator = DataCollatorForSeq2Seq(
         mt5_tokenizer,
         model=model,
@@ -479,7 +375,7 @@ def rl_train():
     eval_dataloader = DataLoader(
         evaldataset, shuffle=True, collate_fn=data_collator, batch_size=4
     )
-    no_decay = ["bias", "LayerNorm.weight"]
+
     optimizer = Adafactor(model.parameters() , lr = 5e-5 , weight_decay = 0.01 , relative_step = False , scale_parameter = False)
     model, optimizer, train_dataloader, eval_dataloader = accelerator.prepare(
         model, optimizer, train_dataloader, eval_dataloader
@@ -500,7 +396,6 @@ def rl_train():
     for epoch in tqdm(range(5)):
         total_rl_loss, total_loss = 0, 0
         total_ml_loss = 0
-        #print(len(train_dataloader))
         accum_loss = 0.0
         for step, data in tqdm(enumerate(train_dataloader, 1)):
             model.train()
@@ -509,6 +404,7 @@ def rl_train():
             rl_ratio = 0.1*epoch
             #rl_ratio = 1
             #print('rlr',rl_ratio)
+
             if rl_ratio > 0:
                 rl_loss = compute_rl_loss(data, outputs.logits, model, mt5_tokenizer, accelerator, device, compute_metrices)
             else:
@@ -516,7 +412,6 @@ def rl_train():
             ml_loss = outputs.loss
             total_rl_loss += rl_loss.item()
             total_ml_loss += ml_loss.item()
-            #print(ml_loss)
             loss = rl_loss * rl_ratio + ml_loss * (1 - rl_ratio)
             total_loss += loss.item()
             if len(train_dataloader) % 16 != 0 \
@@ -540,8 +435,7 @@ def rl_train():
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
-            if step % 16 == 0 or step == len(train_dataloader):
-                print("Train | Loss: {:.5f}".format(total_loss / step))
+
             if step % 100 == 0:
                 model.eval()
                 eval_metrices = {
@@ -579,7 +473,7 @@ def rl_train():
                         max_rouge_score = temp_score
                         accelerator.wait_for_everyone()
                         unwrapped_model = accelerator.unwrap_model(model)
-                        unwrapped_model.save_pretrained("temp_mlrl_trained_for_summarization_tw", save_function=accelerator.save)
+                        unwrapped_model.save_pretrained("temp_mlrl_model", save_function=accelerator.save)
                         print("save step:", step)
                         print("max_rouge_score", max_rouge_score)
                 info = {
@@ -602,12 +496,12 @@ def rl_train():
                 file.write(json.dumps(data , ensure_ascii=False) + "\n")
     accelerator.wait_for_everyone()
     unwrapped_model = accelerator.unwrap_model(model)
-    #modelpath = "rl_iter_trained_for_summarization_tw_" + path
-    unwrapped_model.save_pretrained("final_mlplusrl_iter_trained_for_summarization_tw", save_function=accelerator.save)
+    unwrapped_model.save_pretrained("final_mlrl_model", save_function=accelerator.save)
     return 
+
 def main():
-    rl_train()
-    #train()
+    #rl_train()
+    train()
     return
 
 
