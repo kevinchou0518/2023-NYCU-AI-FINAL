@@ -8,7 +8,10 @@
 文玠敦 110550032
 <br/>
 范均宏 110550083
-
+## Report and Presentation
+(Team10_Chinese_Text_Summarization.pdf)[https://github.com/kevinchou0518/2023-NYCU-AI-Final-Project-Team-10/blob/main/Team10_Chinese_Text_Summarization.pdf]
+<br/>
+(Presentatioin Video)[https://www.youtube.com/watch?v=UFe0m9H5UbE&ab_channel=%E6%96%87%E7%8E%A0%E6%95%A6]
 ###  Download PyTorch version
 ```
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
