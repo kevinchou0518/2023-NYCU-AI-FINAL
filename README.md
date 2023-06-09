@@ -1,5 +1,14 @@
 # 2023-NYCU-AI-FINAL
 # Chinese Article Summarization
+## Group Member
+何存益 110550165
+<br/>
+周冠辰 110550089
+<br/>
+文玠敦 110550032
+<br/>
+范均宏 110550083
+
 ###  Download PyTorch version
 ```
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
