@@ -12,6 +12,11 @@ pip install -r requirements.txt
  1.Extractive Method
 <br/>
  2.Abstractive Method
+
+## Dataset
+Web crawling the news in [ETtoday](https://www.ettoday.net/?from=logo)
+<br/>
+Detail in [build_dataset.py](https://github.com/kevinchou0518/2023-NYCU-AI-Final-Project-Team-10/blob/main/build_dataset.py)
 ## Baseline: Extractive Method - Sentence Scoring Method
 Implementation:
 <br/>
@@ -22,12 +27,12 @@ Implementation:
 3.Score the sentence
 <br/>
 4.Article summarize
+<br/>
+Detail in [extrative_method.py](https://github.com/kevinchou0518/2023-NYCU-AI-Final-Project-Team-10/blob/main/extrative_method.py)
 ## Main Approach: Abstractive Method - Fine-tuning mt5-model
 Using pre-train transformer model mt5 provided by google 
 <br/>
-Fine-tuning the mt5-model
-<br/>
-with our dataset collect from [ETtoday](https://www.ettoday.net/?from=logo)
+Fine-tuning the mt5-model with our collected dataset 
 <br/>
 ### Hyperparameters
 batch size: 4
