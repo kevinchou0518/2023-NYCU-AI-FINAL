@@ -57,12 +57,17 @@ Using ROUGE which is the most used package designed for automatic summarization
 | Supervised Learning | 0.389000 | 0.194737 | 0.343403 |
 | Supervised Learning | 0.400387 | 0.198889 | 0.345834 |
 
-### Related Paper
+## Related Paper
 1.[Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer](https://jmlr.org/papers/volume21/20-074/20-074.pdf)
 <br/>
 2.[Attention Is All You Need](https://arxiv.org/pdf/1706.03762.pdf)
 <br/>
 3.[mT5: A Massively Multilingual Pre-trained Text-to-Text Transformer](https://arxiv.org/pdf/2010.11934.pdf)
-<br/>.
+<br/>
 4.[A DEEP REINFORCED MODEL FOR ABSTRACTIVE SUMMARIZATION](https://arxiv.org/pdf/1705.04304.pdf)
 ## Related website
+1.[ETtoday](https://www.ettoday.net)
+<br/>
+2.[ckiptagger](https://github.com/ckiplab/ckiptagger)
+<br/>
+3.[Huggingface mt5 model]([https://arxiv.org/pdf/2010.11934.pdf](https://huggingface.co/docs/transformers/model_doc/mt5))
