@@ -51,8 +51,6 @@ Using ROUGE which is the most used package designed for automatic summarization
 | mt5 model without fine-tuning | 0.140646 | 0.064830 | 0.138213 |
 | Supervised Learning | 0.389000 | 0.194737 | 0.343403 |
 | Supervised Learning | 0.400387 | 0.198889 | 0.345834 |
-
-
 <br/>
 ### Related Paper
 1.[Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer](https://jmlr.org/papers/volume21/20-074/20-074.pdf)
