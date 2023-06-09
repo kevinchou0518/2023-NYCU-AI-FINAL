@@ -1,5 +1,10 @@
 # 2023-NYCU-AI-FINAL
-### Create playground
+
+###  Download PyTorch version
+```
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+```
+### Setup playground
 ```
 pip install -r requirements.txt
 ```
