@@ -11,7 +11,7 @@ pip install -r requirements.txt
 ## Target: Doing Chinese article summarization with two different methods
  1.Extractive Method
  2.Abstractive Method
-## Extractive Method
+## Baseline: Extractive Method - Sentence Scoring Method
 Implementation:
 <br/>
 1.Tokenize the sentence
@@ -21,8 +21,10 @@ Implementation:
 3.Score the sentence
 <br/>
 4.Article summarize
-## Abstractive Method
+## Main Approach: Abstractive Method - Fine-tuning mt5-model
 Using pre-train model md5 and transformer provided by google on [Hugging Face](https://huggingface.co/)
+### Hyperparamters
+
 <br/>
 Fine-tuning the model
 <br/>
